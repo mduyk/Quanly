@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>MASTER ADMIN - QUẢN LÝ 2 SHOP</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        body { background: #0d0d16; color: #fff; font-family: 'Segoe UI', sans-serif; padding: 20px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .box { background: #161625; padding: 20px; border-radius: 12px; border: 1px solid #333; margin-bottom: 20px; }
+        h2 { color: #00f2ff; margin-top: 0; font-size: 18px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        input, select, textarea { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #444; background: #000; color: #fff; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #00f2ff; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+        th { background: #222; color: #00f2ff; }
+        .shop1-text { color: #00ff88; }
+        .shop2-text { color: #ff007b; }
+    </style>
+</head>
+<body>
+
+    <h1 style="text-align: center; color: #ffcc00;">MASTER CONTROL PANEL</h1>
+
+    <div class="grid">
+        <div class="box">
+            <h2>💰 CỘNG TIỀN NHANH</h2>
+            <select id="shop-select">
+                <option value="users_shop1">Cộng cho SHOP 1</option>
+                <option value="users_shop2">Cộng cho SHOP 2</option>
+            </select>
+            <input type="text" id="target-user" placeholder="Nhập Username...">
+            <input type="number" id="amount" placeholder="Số tiền cần cộng...">
+            <button onclick="addMoney()">XÁC NHẬN CỘNG TIỀN</button>
+        </div>
+
+        <div class="box">
+            <h2>🔑 KHO KEY (UP HÀNG)</h2>
+            <select id="key-path">
+                <optgroup label="SHOP 1">
+                    <option value="shop1/ngay">Shop 1 - Ngày</option>
+                    <option value="shop1/tuan">Shop 1 - Tuần</option>
+                    <option value="shop1/thang">Shop 1 - Tháng</option>
+                </optgroup>
+                <optgroup label="SHOP 2">
+                    <option value="shop2/ngay">Shop 2 - Ngày</option>
+                    <option value="shop2/tuan">Shop 2 - Tuần</option>
+                    <option value="shop2/thang">Shop 2 - Tháng</option>
+                </optgroup>
+            </select>
+            <textarea id="key-list" placeholder="Dán danh sách key (mỗi dòng 1 key)..."></textarea>
+            <button style="background: #00ff88;" onclick="upKeys()">UP KEY LÊN KHO</button>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="box">
+            <h2 class="shop1-text">👥 USER SHOP 1</h2>
+            <table>
+                <thead><tr><th>User</th><th>Số dư</th><th>Mật khẩu</th></tr></thead>
+                <tbody id="list-s1"></tbody>
+            </table>
+        </div>
+        <div class="box">
+            <h2 class="shop2-text">👥 USER SHOP 2</h2>
+            <table>
+                <thead><tr><th>User</th><th>Số dư</th><th>Mật khẩu</th></tr></thead>
+                <tbody id="list-s2"></tbody>
+            </table>
+        </div>
+    </div>
+
+<script>
+    // GIỮ NGUYÊN CẤU HÌNH CỦA ÔNG
+    const firebaseConfig = {
+        apiKey: "AIzaSyBk6R1TDZeAxh37JQLgL_6Wl0v8m8Sg0",
+        authDomain: "shopctv-61f96.firebaseapp.com",
+        databaseURL: "https://shopctv-61f96-default-rtdb.asia-southeast1.firebasedatabase.app/",
+        projectId: "shopctv-61f96",
+        appId: "1:610663182342:web:83e255ec7921609395f190"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Hàm cộng tiền
+    function addMoney() {
+        const shop = document.getElementById('shop-select').value;
+        const u = document.getElementById('target-user').value.trim().toLowerCase();
+        const amt = parseInt(document.getElementById('amount').value);
+        if(!u || isNaN(amt)) return alert("Nhập đủ thông tin!");
+
+        const ref = db.ref(shop + '/' + u + '/balance');
+        ref.once('value', (s) => {
+            let bal = s.val() || 0;
+            ref.set(bal + amt).then(() => alert("Thành công!"));
+        });
+    }
+
+    // Hàm Up Key
+    function upKeys() {
+        const path = document.getElementById('key-path').value;
+        const keys = document.getElementById('key-list').value.trim().split('\n');
+        if(!keys[0]) return alert("Trống key!");
+
+        keys.forEach(k => {
+            if(k.trim()) db.ref('keys/' + path).push(k.trim());
+        });
+        alert("Đã up " + keys.length + " key!");
+        document.getElementById('key-list').value = "";
+    }
+
+    // Load danh sách Shop 1
+    db.ref('users_shop1').on('value', (snap) => {
+        renderTable('list-s1', snap.val());
+    });
+
+    // Load danh sách Shop 2
+    db.ref('users_shop2').on('value', (snap) => {
+        renderTable('list-s2', snap.val());
+    });
+
+    function renderTable(id, data) {
+        const body = document.getElementById(id);
+        body.innerHTML = "";
+        for(let user in data) {
+            body.innerHTML += `<tr>
+                <td>${user}</td>
+                <td style="color:#ffcc00">${(data[user].balance || 0).toLocaleString()}đ</td>
+                <td style="color:#555">${data[user].password}</td>
+            </tr>`;
+        }
+    }
+</script>
+</body>
+</html>
